@@ -94,8 +94,7 @@ router.post('/login', (req, res) => {
 
 // Logout route (for token invalidation)
 router.post('/logout', (req, res) => {
-  // JWT tokens are stateless and cannot be invalidated from the server side.
-  // To "logout", simply remove the token from the client side.
+  // logout function on client side
   res.status(200).json({ message: 'Logout successful' });
 });
 

@@ -27,7 +27,7 @@ function Nav(){
                                 Account
                                 </a>
                                 <ul className="dropdown-menu dropdown-menu-end mt-4" aria-labelledby="navbarDropdown">
-                                    <li><a className="dropdown-item d-none" href="#">Profile</a></li>
+                                    <li><a className="dropdown-item" href="/student-dashboard">Dashboard</a></li>
                                     <li><a className="dropdown-item" href="/login">Login</a></li>
                                     <li><a className="dropdown-item" href="/register">Register</a></li>
                                     <li><hr className="dropdown-divider d-none" /></li>

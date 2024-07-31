@@ -1,30 +1,26 @@
-// src/server.cjs
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const dotenv = require('dotenv');
 const mysql = require('mysql2');
-const routes = require('./routes/routes.cjs'); // Adjust path as necessary
-const { generateToken, verifyToken } = require('./jwtUtils.cjs'); // Import JWT utils
+const multer = require('multer');
+const routes = require('./routes/routes.cjs');
+const { generateToken, verifyToken } = require('./jwtUtils.cjs');
 
 dotenv.config();
 
 const app = express();
 app.use(bodyParser.json());
 
-// Serve static files from the 'dist' directory
+// Serve static files from the build directory
 const buildPath = path.join(__dirname, '../dist');
 app.use(express.static(buildPath));
 
-// Use the routes defined in routes.cjs
-app.use('/api', routes); // Prefix all routes with '/api'
+// Serve static files from the uploads directory
+const uploadsPath = path.join(__dirname, './uploads');
+app.use('/uploads', express.static(uploadsPath));
 
-// Serve index.html for all other routes (client-side routing)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
-
-// Connect to the database
+// Database connection
 const connection = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -33,6 +29,62 @@ const connection = mysql.createConnection({
   port: process.env.DB_PORT,
 });
 
+// Function to get LRN from the database using user ID
+function getLRN(userId, callback) {
+  connection.query('SELECT lrn FROM students WHERE id = ?', [userId], (err, results) => {
+    if (err) return callback(err);
+    if (results.length > 0) {
+      callback(null, results[0].lrn);
+    } else {
+      callback(new Error('LRN not found for this user'));
+    }
+  });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './uploads/');
+  },
+  filename: function (req, file, cb) {
+    if (!req.userId) {
+      return cb(new Error('User not authenticated'), false);
+    }
+
+    getLRN(req.userId, (err, lrn) => {
+      if (err) return cb(err);
+      cb(null, `${lrn}${path.extname(file.originalname)}`);
+    });
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Upload route
+app.post('/upload', verifyToken, upload.single('userImage'), (req, res) => {
+  res.send('File uploaded and overwritten successfully.');
+});
+
+// Route to get profile picture URL
+app.get('/api/profilepic', verifyToken, (req, res) => {
+  getLRN(req.userId, (err, lrn) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+
+    // Construct the URL to fetch the profile image
+    const imageUrl = `/uploads/${lrn}.jpg`; // Adjust the extension if necessary
+    res.json({ imageUrl });
+  });
+});
+
+// Use the routes defined in routes.cjs
+app.use('/api', routes); // Prefix 'api'
+
+// Serve index
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// Connect to the database and start the server
 connection.connect((err) => {
   if (err) {
     console.error('Error connecting to db.', err.stack);
